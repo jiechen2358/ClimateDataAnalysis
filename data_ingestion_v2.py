@@ -7,7 +7,7 @@ import sys
 from botocore.config import Config
 
 ts_dbname = 'testdb'
-ts_tablename = 'silo_table'
+ts_tablename = 'climatetable'
 
 #Allow to upload multi data sources.
 source_configs = [
@@ -49,23 +49,27 @@ def upload_to_timestream(write_client, dbname, tablename, records, common_attrib
     except write_client.exceptions.RejectedRecordsException as err:
         print_rejected_records_exceptions(err)
 
-def fetch_data(raw_records, lat, lon, targetLat, targetLon, dt_range, len_time):
+def fetch_record_batches(raw_records, lat, lon, targetLat, targetLon, dt_range, len_time):
     idxlon = numpy.where(lon==targetLon )
-    print(idxlon[0][0])
+    #print(idxlon[0][0])
     idxlat = numpy.where(lat==targetLat )
-    print(idxlat[0][0])
+    #print(idxlat[0][0])
     
+    batches = []
     records = []
     for time_index in range(len_time):
-        if time_index< len_time - 10:
-            continue
-
+        if time_index > 0 and time_index % 55 == 0:
+            batches.append(records)
+            records = []
         record = {
             'MeasureValue' : str(round(raw_records[time_index, idxlat, idxlon][0][0],3)),
             'Time': milli_time(dt_range[time_index])
         }
         records.append(record)
-    return records
+
+    if len(records) > 0:
+        batches.append(records)
+    return batches
 
 def process(write_client, year, measure):
     with netCDF4.Dataset(year + '.' + measure + '.nc', 'r') as dataset:
@@ -90,9 +94,12 @@ def process(write_client, year, measure):
                 'Dimensions': dimensions,
                 'MeasureName': measure,
             }
-            records =  fetch_data(raw_records, lat, lon, item["lat"], item["lon"], dt_range_perfile, len_time)
-            print(records)
-            upload_to_timestream(write_client, ts_dbname, ts_tablename, records, common_attributes)
+            
+            batches =  fetch_record_batches(raw_records, lat, lon, item["lat"], item["lon"], dt_range_perfile, len_time)
+            #print(len(batches))
+            for batch in batches:
+                #print(len(batch))
+                upload_to_timestream(write_client, ts_dbname, ts_tablename, batch, common_attributes)
             print(item["city"])
 
 if __name__ == '__main__':
