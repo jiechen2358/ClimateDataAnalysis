@@ -9,18 +9,20 @@ from botocore.config import Config
 ts_dbname = 'testdb'
 ts_tablename = 'silo_table'
 
-
-# todo: add more cities in australia for analysis and visualization
-city_config = [
-    {"city":"Melbourne","lat":-37.8,"lon": 144.96},
-    {"city":"Sydney","lat":-33.85,"lon": 151.2}
-    {"city":"Brisbane","lat":-27.45,"lon": 153}
-    {"city":"Perth","lat":-31.95,"lon": 115.85}
-    {"city":"Adelaide","lat":-34.9,"lon": 138.6}
+#Allow to upload multi data sources.
+source_configs = [
+    {"year":"2021", "variable":"max_temp"},
+    {"year":"2021", "variable":"daily_rain"},
 ]
 
-targetLat = -33.85
-targetLon = 151.2
+# Flexible to add more cities or other custom configs
+city_configs = [
+        {"city":"Melbourne", "lat":-37.8,"lon": 144.95},
+        {"city":"Sydney", "lat":-33.85,"lon": 151.2},
+        {"city":"Brisbane", "lat":-27.45,"lon": 153},
+        {"city":"Perth", "lat":-31.95,"lon": 115.85},
+        {"city":"Adelaide", "lat":-34.9,"lon": 138.6},
+    ]
 
 def current_milli_time():
     return str(int(round(time.time() * 1000)))
@@ -49,13 +51,13 @@ def upload_to_timestream(write_client, dbname, tablename, records, common_attrib
 
 def fetch_data(raw_records, lat, lon, targetLat, targetLon, dt_range, len_time):
     idxlon = numpy.where(lon==targetLon )
-    #print(idxlon[0][0])
+    print(idxlon[0][0])
     idxlat = numpy.where(lat==targetLat )
-    #print(idxlat[0][0])
+    print(idxlat[0][0])
     
     records = []
     for time_index in range(len_time):
-        if time_index< len_time - 20:
+        if time_index< len_time - 10:
             continue
 
         record = {
@@ -65,11 +67,8 @@ def fetch_data(raw_records, lat, lon, targetLat, targetLon, dt_range, len_time):
         records.append(record)
     return records
 
-# Todo: The max_temp, daily_rain, etc can be configable. It should has very limited changes
-if __name__ == '__main__':
-    session = boto3.Session()
-    write_client = session.client('timestream-write')
-    with netCDF4.Dataset('2021.max_temp.nc', 'r') as dataset:
+def process(write_client, year, measure):
+    with netCDF4.Dataset(year + '.' + measure + '.nc', 'r') as dataset:
         lon = numpy.array(dataset.variables['lon'][:])
         lat = numpy.array(dataset.variables['lat'][:])
         starting_dt = dataset.variables['time'].units[11:22]
@@ -77,19 +76,28 @@ if __name__ == '__main__':
         dt_range_perfile = pd.date_range(start = starting_dt, end = end_dt)
         len_time = numpy.array(dataset.variables['time'][:]).shape[0]
 
-        data = dataset.variables['max_temp'][:]
+        data = dataset.variables[measure][:]
         raw_records = numpy.array(data)
         raw_records = numpy.where(raw_records<0, 0, raw_records)
 
-        dimensions = [
-        {'Name': 'Lat', 'Value': str(targetLat)},
-        {'Name': 'Lon', 'Value': str(targetLon)}
-        ]
-        common_attributes = {
-            'Dimensions': dimensions,
-            'MeasureName': 'MaxTemp',
-        }
-        records =  fetch_data(raw_records, lat, lon, targetLat, targetLon, dt_range_perfile, len_time)
-        #print(records)
-        upload_to_timestream(write_client, ts_dbname, ts_tablename, records, common_attributes)
-        print("done")
+        for item in city_configs:
+            dimensions = [
+                {'Name': 'Lat', 'Value': str(item["lat"])},
+                {'Name': 'Lon', 'Value': str(item["lon"])},
+                {'Name': 'City', 'Value': str(item["city"])}
+            ]
+            common_attributes = {
+                'Dimensions': dimensions,
+                'MeasureName': measure,
+            }
+            records =  fetch_data(raw_records, lat, lon, item["lat"], item["lon"], dt_range_perfile, len_time)
+            print(records)
+            upload_to_timestream(write_client, ts_dbname, ts_tablename, records, common_attributes)
+            print(item["city"])
+
+if __name__ == '__main__':
+    session = boto3.Session()
+    write_client = session.client('timestream-write')
+
+    for source in source_configs:
+        process(write_client, source["year"], source["variable"])
