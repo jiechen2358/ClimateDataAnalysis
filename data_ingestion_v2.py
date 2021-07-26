@@ -6,12 +6,17 @@ import pandas as pd
 import sys
 from botocore.config import Config
 
+# Config the destination of Timestream DB and Table
 ts_dbname = 'testdb'
 ts_tablename = 'climatetable'
 
 #Allow to upload multi data sources.
 source_configs = [
+    {"year":"2020", "variable":"max_temp"},
     {"year":"2021", "variable":"max_temp"},
+    {"year":"2020", "variable":"min_temp"},
+    {"year":"2021", "variable":"min_temp"},
+    {"year":"2020", "variable":"daily_rain"},
     {"year":"2021", "variable":"daily_rain"},
 ]
 
@@ -85,6 +90,7 @@ def process(write_client, year, measure):
         raw_records = numpy.where(raw_records<0, 0, raw_records)
 
         for item in city_configs:
+            # Leverage common attributes for the workload saving.
             dimensions = [
                 {'Name': 'Lat', 'Value': str(item["lat"])},
                 {'Name': 'Lon', 'Value': str(item["lon"])},
@@ -95,10 +101,9 @@ def process(write_client, year, measure):
                 'MeasureName': measure,
             }
             
+            # 50 records will be in single batch to save 5o times ingestion.
             batches =  fetch_record_batches(raw_records, lat, lon, item["lat"], item["lon"], dt_range_perfile, len_time)
-            #print(len(batches))
             for batch in batches:
-                #print(len(batch))
                 upload_to_timestream(write_client, ts_dbname, ts_tablename, batch, common_attributes)
             print(item["city"])
 
