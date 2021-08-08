@@ -18,6 +18,13 @@ source_configs = [
     {"year":"2021", "variable":"min_temp"},
     {"year":"2020", "variable":"daily_rain"},
     {"year":"2021", "variable":"daily_rain"},
+    {"year":"2020", "variable":"et_morton_actual"},
+    {"year":"2021", "variable":"et_morton_actual"},
+    {"year":"2020", "variable":"et_morton_potential"},
+    {"year":"2021", "variable":"et_morton_potential"},
+    {"year":"2020", "variable":" et_morton_wet"},
+    {"year":"2021", "variable":" et_morton_wet"},
+    # + more measurements
 ]
 
 # Flexible to add more cities or other custom configs
@@ -27,7 +34,14 @@ city_configs = [
         {"city":"Brisbane", "lat":-27.45,"lon": 153},
         {"city":"Perth", "lat":-31.95,"lon": 115.85},
         {"city":"Adelaide", "lat":-34.9,"lon": 138.6},
+        {"city":"Gold Coast", "lat":-28.0,"lon": 153.40},
+        {"city":"NewCastle", "lat":-32.9,"lon": 151.75},
+        {"city":"Canberra", "lat":-35.30,"lon": 149.10},
+        {"city":"Sunshine Coast", "lat":-26.65,"lon": 153.05},
+        {"city":"Central Coast", "lat":-33.30,"lon": 151.20},
+        # + more locations.
     ]
+
 
 def current_milli_time():
     return str(int(round(time.time() * 1000)))
