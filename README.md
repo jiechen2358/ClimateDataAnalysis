@@ -160,4 +160,4 @@ cat .s3nc.json
 
 To execute:
 
-python3 climate_data_processing_producer.py 2020
+python3 climate_data_extract_singleFile.py 2020
