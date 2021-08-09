@@ -1,21 +1,28 @@
-from netCDF4 import Dataset
 import glob
 import numpy
 Import pandas as pd
+import sys
+import os
+import fileinput
+import boto3
+import codecs
+import json
+
+os.environ["S3_NC_CONFIG"] = "/home/ec2-user/.s3nc.json"
+from S3netCDF4._s3netCDF4 import s3Dataset as Dataset
+
 
 def ncdump(nc_fid, verb=True):
     '''
     ncdump outputs dimensions, variables and their attribute information.
     The information is similar to that of NCAR's ncdump utility.
     ncdump requires a valid instance of Dataset.
-
     Parameters
     ----------
     nc_fid : netCDF4.Dataset
         A netCDF4 dateset object
     verb : Boolean
         whether or not nc_attrs, nc_dims, and nc_vars are printed
-
     Returns
     -------
     nc_attrs : list
@@ -28,7 +35,6 @@ def ncdump(nc_fid, verb=True):
     def print_ncattr(key):
         """
         Prints the NetCDF file attributes for a given key
-
         Parameters
         ----------
         key : unicode
@@ -118,13 +124,9 @@ def ncwrite (ncfile):
     df2.to_csv("precipitation_2020_data.csv")
 
 
+yearType = sys.argv[1]
 
-import sys
-import os
-import fileinput
-
-
-ncfiles = list(glob.glob('2020.daily_rain.nc'))
+ncfiles = list(glob.glob(+yearType+'.daily_rain.nc'))
 for ifile in range(len(ncfiles)):
             sfile = Dataset(ncfiles[ifile],mode='r', format='NETCDF4')
             base, extension = os.path.splitext(ncfiles[ifile])
@@ -132,6 +134,7 @@ for ifile in range(len(ncfiles)):
             f = open(output, 'w')
             sys.stdout = f
             #ncdump(sfile)
-            ncwrite(sfile)
+            s3_ds = Dataset('s3://silo-open-data/annual/daily_rain/'+yearType+'.daily_rain.nc', 'r', format='NETCDF4')
+            ncwrite(s3_ds)
             f.close()
 orig_stdout = sys.stdout
